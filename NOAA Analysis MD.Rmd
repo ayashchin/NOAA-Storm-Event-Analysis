@@ -36,7 +36,7 @@ Great, now that we know what we're trying to answer, we can process the raw data
 
 ```{r}
 library(dplyr)
-healthdata <- data %>% select(STATE__,STATE,EVTYPE,FATALITIES,INJURIES,REFNUM)
+healthdata <- data %>% select(EVTYPE,STATE__,STATE,FATALITIES,INJURIES,REFNUM)
 ```
 Let's check for missing values:
 ```{r} sum(is.na(healthdata$FATALITIES))```
@@ -45,10 +45,37 @@ There are no missing values. This data set is ready for manipulation and analysi
 Now, let's create our second subset.
 
 ```{r}
-economicdata <- data %>% select(STATE__,STATE,EVTYPE,PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP,REFNUM)
+economicdata <- data %>% select(EVTYPE,STATE__,STATE,PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP,REFNUM)
 ```
 
 Let's check for missing values:
 ```{r} sum(is.na(economicdata$PROPDMG))+sum(is.na(economicdata$CROPDMG))```
 
 There are no missing values. This data set is ready for manipulation and analysis.
+
+##Results
+###Analysis of storm events on U.S. health outcomes.
+Using our "healthdata" subset, we will conduct an analysis to answer Question 1. Let's start by taking a quick look at our dataset. 
+
+```{r} 
+dim(healthdata)
+head(healthdata)
+```
+Let's add a column called "TOTAL" which sums the number of Fatalities and Injuries and arrange in descending order. 
+
+```{r}
+healthdata <- healthdata %>% mutate(TOTAL=FATALITIES+INJURIES) %>% select(EVTYPE:INJURIES,TOTAL,REFNUM) %>% arrange(desc(TOTAL))
+```
+Let's take a look at this new data. 
+```{r} healthdata[1:20,]```
+
+Looks like Tornados are pretty dangerous. Let's get a sum by event and save it to a new variable. Since we're looking for the events with the greatest impact on health, let's remove those that have no impact.
+```{r}
+eventhealth <- healthdata %>% group_by(EVTYPE) %>% summarize(sum(TOTAL)) %>% rename(OUTCOMES =`sum(TOTAL)`) %>% arrange(desc(OUTCOMES)) %>% filter(OUTCOMES>0)
+summary(eventhealth)
+eventhhealth[1:20,]
+```
+We can see that tornados are by far the most detrimental to human health. Before we plot, let's further refine this subset to only include data for events with total negative health outcomes in the 3rd Quantile or above.
+
+```{r}
+worstevents <- eventhealth %>% filter(OUTCOMES > quantile(OUTCOMES,0.75))
