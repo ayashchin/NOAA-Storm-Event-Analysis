@@ -106,7 +106,7 @@ For a quick visual, we can create a plot of just the top 10.
 library(reshape2)
 library(ggplot2)
 worstevents <- melt(select(eventhealth[1:10,],c(EVTYPE,Fatalities:Injuries)))
-ggplot(worstevents,aes(x=EVTYPE,y=value,fill=variable))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event") + ylab("Occurence per Event")
+ggplot(worstevents,aes(x=EVTYPE,y=value,fill=variable))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event") + ylab("Occurence per Event") + ggtitle("Extreme Weather Event Human Impact")
 ```
 
 This quick visual shows us that there are various high impact events that seem similar and could probably be grouped (i.e. "excessive heat", "heat" and "heat wave" or "rip current" and "rip currents"), however that would require studying the data collection methods and category assignment more closely and determining if grouping were appropriate. For now we will leave it as is. 
