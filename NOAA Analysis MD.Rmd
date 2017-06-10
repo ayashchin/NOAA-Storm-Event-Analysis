@@ -54,6 +54,14 @@ Let's check for missing values:
 There are no missing values. This data set is ready for manipulation and analysis.
 
 ##Results
+Before we begin, let's create a data frame that shows us the number of times each event occurs. We will use this later to determine the risk by impact per event.
+
+```{r}
+event_occurence <- as.data.frame(summary(data$EVTYPE))
+event_occurence <- rename(event_occurence,Frequency=`summary(data$EVTYPE)`)
+```
+
+
 ###Analysis of storm events on U.S. health outcomes.
 Using our "healthdata" subset, we will conduct an analysis to answer Question 1. Let's start by taking a quick look at our dataset. 
 
@@ -61,21 +69,44 @@ Using our "healthdata" subset, we will conduct an analysis to answer Question 1.
 dim(healthdata)
 head(healthdata)
 ```
-Let's add a column called "TOTAL" which sums the number of Fatalities and Injuries and arrange in descending order. 
+Let's add a column called "TOTAL" which sums the number of Fatalities and Injuries and arrange in descending order.
 
 ```{r}
-healthdata <- healthdata %>% mutate(TOTAL=FATALITIES+INJURIES) %>% select(EVTYPE:INJURIES,TOTAL,REFNUM) %>% arrange(desc(TOTAL))
+healthdata <- healthdata %>% mutate(BOTH=FATALITIES+INJURIES) %>% select(EVTYPE:INJURIES,BOTH) %>% arrange(desc(BOTH))
+head(healthdata)
 ```
-Let's take a look at this new data. 
-```{r} healthdata[1:20,]```
 
-Looks like Tornados are pretty dangerous. Let's get a sum by event and save it to a new variable. Since we're looking for the events with the greatest impact on health, let's remove those that have no impact.
+Eek, wouldn't want to be caught in a tornado! Now, let's get a sum for each impact (i.e. fatality or injury) by event and save it to a new variable. Since we're looking for the events with the greatest impact on health, let's remove those that have no impact.
 ```{r}
-eventhealth <- healthdata %>% group_by(EVTYPE) %>% summarize(sum(TOTAL)) %>% rename(OUTCOMES =`sum(TOTAL)`) %>% arrange(desc(OUTCOMES)) %>% filter(OUTCOMES>0)
+eventhealth <- healthdata %>% group_by(EVTYPE) %>% select(EVTYPE,FATALITIES:BOTH) %>% summarize_each(funs(sum)) %>% arrange(desc(BOTH)) %>% filter(BOTH>0)
 summary(eventhealth)
-eventhhealth[1:20,]
+eventhealth[1:20,]
 ```
-We can see that tornados are by far the most detrimental to human health. Before we plot, let's further refine this subset to only include data for events with total negative health outcomes in the 3rd Quantile or above.
+
+Finally, let's add a column that shows the total times this event occurs and the number of fatalities or injuries per event. 
 
 ```{r}
-worstevents <- eventhealth %>% filter(OUTCOMES > quantile(OUTCOMES,0.75))
+eventhealth <- merge(eventhealth,event_occurence,by.x="EVTYPE",by.y='row.names') %>% arrange(desc(Frequency)) 
+head(eventhealth)
+```
+
+Looks like hail is our most frequent weather event, although it appears to have a relatively low impact. Let's confirm this by determining the impact on a per event basis. We will divide the number of fatalities and injuries by the number of event occurances to determine how many fatalities or injuries there were per occurance.
+```{r}
+eventhealth <- eventhealth %>% mutate(riskFatal=FATALITIES/Frequency,riskInjury=INJURIES/Frequency,riskBoth=BOTH/Frequency) %>% arrange(desc(riskBoth)) %>% rename(Fatalities = riskFatal,Injuries=riskInjury)
+eventhealth[1:20,]
+```
+
+Wow, tornados don't seem that scary after all. Looks like we should be much more afraid of getting caught in heat or a rip current. By looking at the health impact on a per event basis versus a total, we were able to control for the large outlier that Tornados were at the total level. We now know that while tornados can be extremely detrimental and harm large amounts of the population at one time, the risk of them being that impactful is rarer than had appeared on the surface. 
+
+We now have a complete table that can inform officials on the potential risk of any extreme weather event on human health so that they can allocate resources and prep response teams appropriately. 
+
+For a quick visual, we can create a plot of just the top 10. 
+
+```{r}
+library(reshape2)
+library(ggplot2)
+worstevents <- melt(select(eventhealth[1:10,],c(EVTYPE,Fatalities:Injuries)))
+ggplot(worstevents,aes(x=EVTYPE,y=value,fill=variable))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event") + ylab("Occurence per Event")
+```
+
+This quick visual shows us that there are various high impact events that seem similar and could probably be grouped (i.e. "excessive heat", "heat" and "heat wave" or "rip current" and "rip currents"), however that would require studying the data collection methods and category assignment more closely and determining if grouping were appropriate. For now we will leave it as is. 
