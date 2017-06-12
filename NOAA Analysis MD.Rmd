@@ -10,57 +10,144 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ##Synopsis
-Placeholder Text.
+Our analysis on the NOAA storm database begins with a quick cleanup of the data, which contained more than 900 different classifiers for storm event types, when there should only be 48. From there, we broke the data into two sets for analysis on health and economic impact respectively. We found that hurricanes are mutually threatening, having a high impact on human health and economic outcomes per event occurence. Other events differed (i.e. heat has a large human health impact but little economic impact and floods have a significantly higher economic impact than human health). The purpose of this analysis was to provide tables and figures that would allow officials to make decisions on extreme weather event preparations. 
 
 ##Loading and Processing the Raw Data
-This data has been provided by the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. It can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2). The supporting data documentation can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf).
+This data has been provided by the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. It can be found [here](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2). The supporting data documentation can be found in National Weather Service Instruction document located [here](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf).
 
 ###Reading in the Data
 ```{r}
 dataUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+
 if(!file.exists("./data")){dir.create("./data")}
-data <- download.file(dataUrl,destfile="./data/NOAA_storm_data.zip")
-data <- read.csv("./data/NOAA_storm_data.zip",header=TRUE,sep=",")
-dim(data)
-head(data)
+if(!file.exists("./data/NOAA_storm_data.zip")){
+  download.file(dataUrl,destfile="./data/NOAA_storm_data.zip")}
+if(!exists("NOAAdata")){
+                NOAAdata <- read.csv("./data/NOAA_storm_data.zip",header=TRUE,sep=",")}
+dim(NOAAdata)
+head(NOAAdata)
 ```
 
 ###Processing the Raw Data
-First, let's identify the questions we are trying to solve:
+First, let's clean up the data. There are 48 valid Storm Data Event listed in the [NWSI supporting documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) on page 6 in table 2.1.1.
+
+```{r}
+str(NOAAdata)
+```
+
+When we run the str function on EVTYPE we can see that there are 985 different classifiers actually being used in the observations. Eek. That's a lot of clean-up. Let's get started. 
+
+Since we're only concerned with the most influential events, for the purpose of this assignment we will do a quick and "dirty" clean-up with some big generalizations. However, were this for a client, we would have to go through hundreds of questionable events line-by-line and read the notes to determine which of the 48 buckets it most closely falls into instead of making blanket assumptions and leaving some uncategorized. For example, would an event listed as simply "FOG" fall into "DENSE FOG" or "FREEZING FOG"?
+
+```{r}
+library(dplyr)
+NOAAdata <- arrange(NOAAdata, EVTYPE)
+unique(NOAAdata$EVTYPE)
+```
+
+Let's start by creating a smaller number of event classes in a new column, allowing us to most easily group the data. We will leave the existing EVTYPE column intact to further subset these classes later. 
+
+
+```{r}
+clean_data <- NOAAdata %>% mutate(EVCLASS = EVTYPE) %>% arrange(EVCLASS)
+clean_data$EVCLASS <- gsub(".*LOW TIDE.*","ASTRONOMICAL LOW TIDE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*AVALAN.*","AVALANCHE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*WATERSPOUT*","WATERSPOUT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*FUNNEL.*","FUNNEL CLOUD",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*TORN.*","TORNADO",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*BLIZ.*","BLIZZARD",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*FLOO.*","FLOOD",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*FREEZ.*","FROST/FREEZE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*COLD.*","COLD/WIND CHILL",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*WIND CHILL.*","COLD/WIND CHILL",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*DEBRIS.*","DEBRIS FLOW",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*FOG.*","FOG",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*DROUGHT.*","DROUGHT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*DRY.*","DROUGHT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*DUST.*","DUST",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*FROST.*","FROST/FREEZE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HEAT.*","HEAT/EXCESSIVE HEAT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*RECORD HIGH.*","HEAT/EXCESSIVE HEAT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*RECORD LOW*","COLD/WIND CHILL",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*WARM.*","HEAT/EXCESSIVE HEAT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HOT.*","HEAT/EXCESSIVE HEAT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HAIL.*","HAIL",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*ICE STORM.*","ICE STORM",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*ICE.*","FROST/FREEZE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*ICY.*","FROST/FREEZE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HURRICANE.*","HURRICANE (TYPHOON)",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*TYPHOON*","HURRICANE (TYPHOON)",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*TROPICAL DEPRESSION.*","TROPICAL DEPRESSION",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*TROPICAL.*","TROPICAL STORM",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*LIGHTN.*","LIGHTNING",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HAIL.*","HAIL",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*CURRENT.*","RIP CURRENT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*SLEET.*","SLEET",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*SURGE.*","STORM SURGE/TIDE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*FIRE.*","FIRE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*THUND.*","THUNDERSTORM",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*TSTM.*","THUNDERSTORM",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*SUMMARY.*","SUMMARIES",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*EROSION.*","EROSION",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*LANDSLID.*","DEBRIS FLOW",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*MUD.*","DEBRIS FLOW",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*NORMAL.*","ABNORMAL EVENT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*MICROBURST.*","THUNDERSTORM",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*DRY.*","DROUGHT",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*VOLCAN.*","VOLCANIC ASH",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*GLAZE.*","FROST/FREEZE",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*SURF.*","HIGH SURF",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*COASTAL STORM.*","COASTAL FLOOD",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub("^DUST$","DUST STORM",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HYPO.*","COLD",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*WIND.*","WIND",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HEAVY RAIN*","HEAVY RAIN",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*RAIN.*","HEAVY RAIN",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*SNOW.*","SNOW",clean_data$EVCLASS,ignore.case=TRUE)
+clean_data$EVCLASS <- gsub(".*HEAVY SNOW.*","SNOW",clean_data$EVCLASS,ignore.case=TRUE)
+unique(clean_data$EVCLASS)
+```
+
+That's a little better. We still have more unique class names than we should, but the major instances should be grouped. Many of these may be irrelevant to our analysis and fall away, so, in the case of this assignment, we won't waste time on them now.
+
+Now, let's identify the questions we are trying to solve:
 
 1. Across the United States, which types of events (as indicated in the 𝙴𝚅𝚃𝚈𝙿𝙴 variable) are most harmful with respect to population health?
 
 2. Across the United States, which types of events have the greatest economic consequences?
 
-Great, now that we know what we're trying to answer, we can process the raw data and prep it for analysis. Let's create two new data subsets, one for each question. We will call them "healthdata" and "economicdata" respectively. We will use the dplyr package to assist.
+Great, now that we know what we're trying to answer, we can continue to process the raw data and prep it for analysis. Let's create two new data subsets, one for each question. We will call them "healthdata" and "economicdata" respectively.
 
 ```{r}
-library(dplyr)
-healthdata <- data %>% select(EVTYPE,STATE__,STATE,FATALITIES,INJURIES,REFNUM)
+healthdata <- clean_data %>% select(EVCLASS,EVTYPE,STATE__,STATE,FATALITIES,INJURIES,REFNUM)
 ```
 Let's check for missing values:
-```{r} sum(is.na(healthdata$FATALITIES))```
+```{r} 
+sum(is.na(healthdata$FATALITIES))
+sum(is.na(healthdata$INJURIES))
+```
 
 There are no missing values. This data set is ready for manipulation and analysis.
 Now, let's create our second subset.
 
 ```{r}
-economicdata <- data %>% select(EVTYPE,STATE__,STATE,PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP,REFNUM)
+economicdata <- clean_data %>% select(EVCLASS,EVTYPE,STATE__,STATE,PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP,REFNUM)
 ```
 
 Let's check for missing values:
-```{r} sum(is.na(economicdata$PROPDMG))+sum(is.na(economicdata$CROPDMG))```
+```{r} 
+sum(is.na(economicdata$PROPDMG))+sum(is.na(economicdata$CROPDMG)+is.na(economicdata$PROPDMGEXP)+is.na(economicdata$CROPDMGEXP))
+```
 
 There are no missing values. This data set is ready for manipulation and analysis.
 
 ##Results
-Before we begin, let's create a data frame that shows us the number of times each event occurs. We will use this later to determine the risk by impact per event.
+Before we begin, let's create a data frame that shows us the number of times each event occurs. We will use this later to determine the risk per event occurence.
 
 ```{r}
-event_occurence <- as.data.frame(summary(data$EVTYPE))
-event_occurence <- rename(event_occurence,Frequency=`summary(data$EVTYPE)`)
+event_occurence <- as.data.frame(summary(NOAAdata$EVTYPE))
+event_occurence <- rename(event_occurence,Frequency=`summary(NOAAdata$EVTYPE)`)
 ```
-
 
 ###Analysis of storm events on U.S. health outcomes.
 Using our "healthdata" subset, we will conduct an analysis to answer Question 1. Let's start by taking a quick look at our dataset. 
@@ -69,16 +156,20 @@ Using our "healthdata" subset, we will conduct an analysis to answer Question 1.
 dim(healthdata)
 head(healthdata)
 ```
-Let's add a column called "TOTAL" which sums the number of Fatalities and Injuries and arrange in descending order.
+Let's add a column called "BOTH" which sums the number of Fatalities and Injuries and arrange in descending order.
 
 ```{r}
-healthdata <- healthdata %>% mutate(BOTH=FATALITIES+INJURIES) %>% select(EVTYPE:INJURIES,BOTH) %>% arrange(desc(BOTH))
+healthdata <- healthdata %>% mutate(BOTH=FATALITIES+INJURIES) %>% select(EVCLASS,EVTYPE,FATALITIES,INJURIES,BOTH) %>% arrange(desc(BOTH))
 head(healthdata)
 ```
 
-Eek, wouldn't want to be caught in a tornado! Now, let's get a sum for each impact (i.e. fatality or injury) by event and save it to a new variable. Since we're looking for the events with the greatest impact on health, let's remove those that have no impact.
+Eek, wouldn't want to be caught in a tornado!
+
+Now, let's get a sum for each impact (i.e. fatality or injury) by event class and save it to a new variable. Since we're looking for the events with the greatest impact on health, let's remove those that have no impact.
+
 ```{r}
-eventhealth <- healthdata %>% group_by(EVTYPE) %>% select(EVTYPE,FATALITIES:BOTH) %>% summarize_each(funs(sum)) %>% arrange(desc(BOTH)) %>% filter(BOTH>0)
+eventhealth <- healthdata %>% filter(BOTH>0) %>% group_by(EVCLASS,EVTYPE) %>% summarize_each(funs(sum)) %>% arrange(desc(BOTH))
+dim(eventhealth)
 summary(eventhealth)
 eventhealth[1:20,]
 ```
@@ -86,17 +177,18 @@ eventhealth[1:20,]
 Finally, let's add a column that shows the total times this event occurs and the number of fatalities or injuries per event. 
 
 ```{r}
-eventhealth <- merge(eventhealth,event_occurence,by.x="EVTYPE",by.y='row.names') %>% arrange(desc(Frequency)) 
+eventhealth <- merge(eventhealth,event_occurence,by.x="EVTYPE",by.y='row.names') %>% arrange(desc(Frequency))
 head(eventhealth)
 ```
 
-Looks like hail is our most frequent weather event, although it appears to have a relatively low impact. Let's confirm this by determining the impact on a per event basis. We will divide the number of fatalities and injuries by the number of event occurances to determine how many fatalities or injuries there were per occurance.
+Looks like hail is our most frequent weather event, although it appears to have a relatively low impact. Let's confirm this by determining the impact on a per event basis. We will divide the number of fatalities and injuries by the number of event occurances to determine how many fatalities or injuries there were per occurance. We will group by EVCLASS for a cleaner analysis.
+
 ```{r}
-eventhealth <- eventhealth %>% mutate(riskFatal=FATALITIES/Frequency,riskInjury=INJURIES/Frequency,riskBoth=BOTH/Frequency) %>% arrange(desc(riskBoth)) %>% rename(Fatalities = riskFatal,Injuries=riskInjury)
+eventhealth <- eventhealth %>% mutate(riskFatal=FATALITIES/Frequency,riskInjury=INJURIES/Frequency,riskBoth=BOTH/Frequency) %>% select(EVCLASS:riskBoth) %>% group_by(EVCLASS) %>% summarize_each(funs(sum)) %>% arrange(desc(riskBoth))
 eventhealth[1:20,]
 ```
 
-Wow, tornados don't seem that scary after all. Looks like we should be much more afraid of getting caught in heat or a rip current. By looking at the health impact on a per event basis versus a total, we were able to control for the large outlier that Tornados were at the total level. We now know that while tornados can be extremely detrimental and harm large amounts of the population at one time, the risk of them being that impactful is rarer than had appeared on the surface. 
+Wow, tornados don't seem that scary after all. Looks like we should be much more afraid of getting caught in heat or a hurricane. By looking at the health impact on a per event basis versus a total, we were able to control for the large outlier that Tornados were at the total level. We now know that while tornados have the potential to be catastrophic and harm large amounts of the population at one time, the risk of them being that impactful to human health is rarer than had appeared on the surface. 
 
 We now have a complete table that can inform officials on the potential risk of any extreme weather event on human health so that they can allocate resources and prep response teams appropriately. 
 
@@ -105,8 +197,65 @@ For a quick visual, we can create a plot of just the top 10.
 ```{r}
 library(reshape2)
 library(ggplot2)
-worstevents <- melt(select(eventhealth[1:10,],c(EVTYPE,Fatalities:Injuries)))
-ggplot(worstevents,aes(x=EVTYPE,y=value,fill=variable))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event") + ylab("Occurence per Event") + ggtitle("Extreme Weather Event Human Impact")
+worstevents <- melt(select(eventhealth[1:10,],c(EVCLASS,riskFatal:riskInjury)))
+worstevents <- worstevents %>% rename(Incidents=variable) 
+worstevents$Incidents <- gsub(".*Fatal.*","Fatalities",worstevents$Incident)
+worstevents$Incidents <- gsub(".*Injur.*","Injuries",worstevents$Incident)
+head(worstevents)
+ggplot(worstevents,aes(x=EVCLASS,y=value,fill=Incidents))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event Type") + ylab("Number of Incidents per Event Occurence") + ggtitle("Top 10 Extreme Weather Events by Human Health Impact")
 ```
 
-This quick visual shows us that there are various high impact events that seem similar and could probably be grouped (i.e. "excessive heat", "heat" and "heat wave" or "rip current" and "rip currents"), however that would require studying the data collection methods and category assignment more closely and determining if grouping were appropriate. For now we will leave it as is. 
+
+###Analysis of storm events on U.S. economy.
+
+First, let's get our data ready. We start by filtering out any observations which record neither property nor crop damage. After that, we will replace the exponent column abbreviations with real numbers (i.e. 1,000 for "K", etc.). Finally, we will multiply those numbers by the listed amount of damage and put the results into new columns, grouped and summarized by Event Type. We will then divide the total damage per event by the number of recorded events to determine average damage per occurance. We will express the financial amount in thousands. 
+
+```{r}
+economicdata <- economicdata %>% filter(PROPDMG>0|CROPDMG>0)
+
+economicdata$PROPDMGEXP <- gsub("^h$","100",economicdata$PROPDMGEXP,ignore.case=TRUE)
+economicdata$PROPDMGEXP <- gsub("^k$","1000",economicdata$PROPDMGEXP,ignore.case=TRUE)
+economicdata$PROPDMGEXP <- gsub("^m$","1000000",economicdata$PROPDMGEXP,ignore.case=TRUE)
+economicdata$PROPDMGEXP <- gsub("^b$","1000000000",economicdata$PROPDMGEXP,ignore.case=TRUE)
+economicdata$PROPDMGEXP <- as.numeric(economicdata$PROPDMGEXP)
+
+economicdata$CROPDMGEXP <- gsub("^h$","100",economicdata$CROPDMGEXP,ignore.case=TRUE)
+economicdata$CROPDMGEXP <- gsub("^k$","1000",economicdata$CROPDMGEXP,ignore.case=TRUE)
+economicdata$CROPDMGEXP <- gsub("^m$","1000000",economicdata$CROPDMGEXP,ignore.case=TRUE)
+economicdata$CROPDMGEXP <- gsub("^b$","1000000000",economicdata$CROPDMGEXP,ignore.case=TRUE)
+economicdata$CROPDMGEXP <- as.numeric(economicdata$CROPDMGEXP)
+
+library(imputeTS)
+economicdata$PROPDMGEXP <- na.replace(economicdata$PROPDMGEXP,fill=0)
+economicdata$CROPDMGEXP <- na.replace(economicdata$CROPDMGEXP,fill=0)
+
+economicdamage <- economicdata %>% select(EVCLASS,EVTYPE,PROPDMG:CROPDMGEXP) %>% mutate(PROPDOL_K = PROPDMG*PROPDMGEXP/1000, CROPDOL_K = CROPDMG*CROPDMGEXP/1000) %>% select(EVCLASS,EVTYPE,PROPDOL_K,CROPDOL_K) %>% group_by(EVCLASS,EVTYPE) %>% mutate(TOTALDOL_K = PROPDOL_K+CROPDOL_K) %>% summarize_each(funs(sum)) %>% arrange(desc(TOTALDOL_K))
+
+economicdamage <- merge(economicdamage,event_occurence,by.x="EVTYPE",by.y='row.names') 
+economicdamage <- economicdamage %>% mutate(PROPDAM_Event = PROPDOL_K/Frequency,CROPDAM_Event = CROPDOL_K/Frequency, TOTALDAM_Event = TOTALDOL_K/Frequency) %>% arrange(desc(TOTALDAM_Event))
+
+head(economicdamage)
+```
+
+We now have a table that shows total econonmic damage per event type and class. Let's find the top 10 by class and do a quick plot like we did for human health impact.
+
+```{r}
+highestdamage <- economicdamage %>% select(EVCLASS,Frequency,PROPDOL_K:TOTALDAM_Event) %>% group_by(EVCLASS) %>% summarize_each(funs(sum)) %>% rename(Property = PROPDOL_K,Crop = CROPDOL_K) %>% arrange(desc(TOTALDAM_Event))
+head(highestdamage)
+                
+totaldamage <- melt(select(highestdamage[1:10,],c(EVCLASS,Property:Crop
+                                                  )))
+totaldamage <- totaldamage %>% rename(Damage=variable) 
+
+ggplot(totaldamage,aes(x=EVCLASS,y=value,fill=Damage))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event Type") + ylab("Total Damage in Dollars (K)") + ggtitle("Top 10 Extreme Weather Events by Aggregate Economic Impact")
+```
+
+Now let's see damage per event occurence.
+```{r}
+damageper <- melt(select(highestdamage[1:10,],c(EVCLASS,PROPDAM_Event:CROPDAM_Event)))
+damageper <- damageper %>% rename(Incidents=variable) 
+
+ggplot(damageper,aes(x=EVCLASS,y=value,fill=Incidents))+geom_bar(stat="identity",position="stack") + theme(axis.text.x = element_text(angle=90,hjust = 1)) + xlab("Extreme Weather Event Type") + ylab("Number of Dollars (K) per Event Occurence") + ggtitle("Top 10 Extreme Weather Events by Economic Risk")
+```
+
+It is very interesting to see the breakdown of both the aggregate damage value since 1950 as well as the amount spent per event (essentially the mean damage). We see that flood damage has been the most expensive as an aggregate, however, on a per event basis, hurricanes have by far. 
